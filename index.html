@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AstraRing 14 — Zenith Space Command</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#000;overflow:hidden;font-family:'Segoe UI',sans-serif;}
+canvas{display:block;}
+#hud{position:absolute;top:0;left:0;right:0;padding:16px 24px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;}
+#hud-left h1{font-size:22px;font-weight:700;letter-spacing:4px;color:#fff;text-shadow:0 0 20px #00d2ff,0 0 40px #0088ff;margin-bottom:2px;}
+#hud-left .sub{font-size:10px;letter-spacing:3px;color:#00a8cc;text-transform:uppercase;}
+#hud-stats{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;}
+.stat{background:rgba(0,30,60,0.75);border:1px solid rgba(0,210,255,0.2);border-radius:6px;padding:6px 12px;font-size:9px;letter-spacing:1px;color:#00d2ff;text-transform:uppercase;}
+.stat span{display:block;font-size:13px;font-weight:700;color:#fff;margin-top:2px;}
+#hud-right{text-align:right;}
+#status-dot{display:inline-block;width:8px;height:8px;background:#00ff88;border-radius:50%;box-shadow:0 0 8px #00ff88;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+#status-text{font-size:10px;color:#00ff88;letter-spacing:2px;margin-left:6px;}
+#time-display{font-size:20px;color:#fff;font-weight:700;margin-top:4px;letter-spacing:2px;}
+#controls-hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(0,10,30,0.8);border:1px solid rgba(0,210,255,0.2);border-radius:20px;padding:8px 20px;color:rgba(255,255,255,0.45);font-size:10px;letter-spacing:1px;pointer-events:none;display:flex;gap:18px;}
+#controls-hint span{color:rgba(0,210,255,0.8);}
+#sector-panel{position:absolute;bottom:60px;right:20px;width:280px;background:rgba(0,8,24,0.93);border:1px solid rgba(0,210,255,0.35);border-radius:12px;padding:20px;display:none;}
+#sector-panel h2{font-size:14px;letter-spacing:3px;color:#00d2ff;text-transform:uppercase;margin-bottom:3px;}
+.sp-zone{font-size:9px;color:rgba(0,210,255,0.5);letter-spacing:2px;margin-bottom:12px;}
+#sector-panel p{font-size:11px;color:rgba(255,255,255,0.8);line-height:1.7;margin-bottom:14px;}
+.sp-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;}
+.sp-stat{background:rgba(0,210,255,0.05);border:1px solid rgba(0,210,255,0.15);border-radius:6px;padding:7px;font-size:9px;letter-spacing:1px;color:#00a8cc;text-transform:uppercase;}
+.sp-stat span{display:block;font-size:12px;color:#fff;font-weight:700;margin-top:2px;}
+#close-panel{width:100%;padding:8px;background:rgba(0,210,255,0.1);border:1px solid rgba(0,210,255,0.3);border-radius:6px;color:#00d2ff;font-size:10px;letter-spacing:2px;cursor:pointer;text-transform:uppercase;transition:.2s;pointer-events:all;}
+#close-panel:hover{background:rgba(0,210,255,0.2);}
+#mode-btns{position:absolute;top:130px;right:20px;display:flex;flex-direction:column;gap:7px;}
+.mode-btn{background:rgba(0,10,30,0.85);border:1px solid rgba(0,210,255,0.22);border-radius:8px;color:#00d2ff;font-size:9px;letter-spacing:1.5px;padding:8px 14px;cursor:pointer;text-transform:uppercase;transition:.2s;text-align:center;}
+.mode-btn:hover,.mode-btn.active{background:rgba(0,210,255,0.15);border-color:rgba(0,210,255,0.6);color:#fff;}
+#loading{position:absolute;inset:0;background:#000014;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;transition:opacity 1s ease;}
+#loading h2{color:#00d2ff;letter-spacing:6px;font-size:18px;margin-bottom:20px;text-transform:uppercase;}
+#lb-wrap{width:280px;height:2px;background:rgba(0,210,255,0.15);border-radius:2px;}
+#lb{height:100%;background:#00d2ff;border-radius:2px;width:0%;transition:width .4s;}
+#loading p{color:rgba(255,255,255,0.35);font-size:10px;letter-spacing:2px;margin-top:14px;text-transform:uppercase;}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <h2>AstraRing 14 Command</h2>
+  <div id="lb-wrap"><div id="lb"></div></div>
+  <p id="lt">Initialising systems...</p>
+</div>
+
+<div id="hud">
+  <div id="hud-left">
+    <h1>ASTRARING 14</h1>
+    <div class="sub">Zenith Space · Command Nexus</div>
+    <div id="hud-stats">
+      <div class="stat">Radius<span>14 km</span></div>
+      <div class="stat">Hub<span>21 m</span></div>
+      <div class="stat">Gravity<span>0.9 G</span></div>
+      <div class="stat">RPM<span>0.24</span></div>
+      <div class="stat">Sectors<span>5</span></div>
+      <div class="stat">Spokes<span>5</span></div>
+    </div>
+  </div>
+  <div id="hud-right">
+    <div><span id="status-dot"></span><span id="status-text">ALL SECTORS OPERATIONAL</span></div>
+    <div id="time-display">00:00:00</div>
+  </div>
+</div>
+
+<div id="mode-btns">
+  <div class="mode-btn active" id="btn-orbit">Orbit View</div>
+  <div class="mode-btn" id="btn-top">Top View</div>
+  <div class="mode-btn" id="btn-side">Side View</div>
+  <div class="mode-btn" id="btn-fly">Fly Inside</div>
+  <div class="mode-btn" id="btn-hub">Hub View</div>
+</div>
+
+<div id="sector-panel">
+  <h2 id="sp-name">Sector</h2>
+  <div class="sp-zone" id="sp-zone">Zone</div>
+  <p id="sp-desc"></p>
+  <div class="sp-stats">
+    <div class="sp-stat">Population<span id="sp-pop">—</span></div>
+    <div class="sp-stat">Gravity<span id="sp-grav">—</span></div>
+    <div class="sp-stat">Status<span id="sp-status">—</span></div>
+    <div class="sp-stat">Temperature<span id="sp-temp">—</span></div>
+  </div>
+  <button id="close-panel">Dismiss</button>
+</div>
+
+<div id="controls-hint">
+  <div><span>Drag</span> Orbit</div>
+  <div><span>Scroll</span> Zoom</div>
+  <div><span>Click</span> Inspect Sector</div>
+  <div><span>Buttons →</span> Change View</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const lb=document.getElementById('lb'),lt=document.getElementById('lt'),loadEl=document.getElementById('loading');
+function load(p,t){lb.style.width=p+'%';if(t)lt.textContent=t;}
+load(10,'Calibrating physics engine...');
+
+// ── EXACT PARAMETERS FROM ORIGINAL FILE ──
+// R = 14km, r_nexus = 21m, RPM = 0.24 → ~0.9G for 14km radius
+// ω = RPM * 2π / 60 = 0.024 * 2π / 60 = 0.02513 rad/s (real)
+// Visual scale: 1 unit = ~10m, so R_scaled = 1400 units
+const R = 1400;       // 14km (1 unit = 10m)
+const R_NEXUS = 2.1;  // 21m hub — kept tiny, hub sphere is decorative at this scale
+const RW = 280;       // ring width (arbitrary — not in original, set to 20% of R for visual)
+const RT = 8;         // ring wall thickness
+// RPM = 0.24 → angular velocity scaled visually
+const OMEGA = 0.0024; // visual rotation (represents 0.24 RPM)
+
+const sectors = [
+  {name:'Aurelius',  zone:'Administrative', color:0x1a3a5a, pop:'840M',  grav:'0.90g', temp:'22°C', status:'Nominal', desc:'Administrative Hub. Home to the Zenith Council. Zero-Partiality AI active and monitoring all governance channels.'},
+  {name:'Veridian',  zone:'Agricultural',   color:0x0f2a10, pop:'380M',  grav:'0.90g', temp:'28°C', status:'Nominal', desc:'Agricultural Sector. 70% humidity maintained. Vertical forests actively scrubbing atmospheric CO2.'},
+  {name:'Forge-7',   zone:'Industrial',     color:0x2a2010, pop:'260M',  grav:'0.90g', temp:'34°C', status:'Nominal', desc:'Industrial Core. Closed-loop 3D printing operational. Zero-pollution manufacturing systems engaged.'},
+  {name:'Aetheris',  zone:'Research',       color:0x0a0a2a, pop:'180M',  grav:'0.90g', temp:'20°C', status:'Nominal', desc:'Research & Science Sector. Advanced R&D active. Hyper-fast data uplink to Earth established.'},
+  {name:'Novus',     zone:'Logistics',      color:0x2a1020, pop:'340M',  grav:'0.90g', temp:'21°C', status:'Nominal', desc:'Logistics & Trade Hub. Interplanetary docking active. Resource distribution systems online.'},
+];
+const sectorColors=[0x00aaff,0x44ff88,0xff8822,0x8888ff,0xff44aa];
+
+const W=window.innerWidth,H=window.innerHeight;
+const renderer=new THREE.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true});
+renderer.setSize(W,H);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.2;
+document.body.insertBefore(renderer.domElement,document.getElementById('hud'));
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x000008);
+scene.fog=new THREE.FogExp2(0x00000a,0.000035);
+const camera=new THREE.PerspectiveCamera(52,W/H,0.5,200000);
+camera.position.set(0,3000,5500);camera.lookAt(0,0,0);
+
+// Stars
+{
+  const g=new THREE.BufferGeometry();
+  const p=new Float32Array(15000);
+  const c=new Float32Array(5000);
+  for(let i=0;i<15000;i+=3){p[i]=(Math.random()-.5)*120000;p[i+1]=(Math.random()-.5)*120000;p[i+2]=(Math.random()-.5)*120000;}
+  for(let i=0;i<5000;i+=3){const w=Math.random()<.3;c[i]=w?1:.7+Math.random()*.3;c[i+1]=.8+Math.random()*.2;c[i+2]=w?.5+Math.random()*.3:1;}
+  g.setAttribute('position',new THREE.BufferAttribute(p,3));
+  g.setAttribute('color',new THREE.BufferAttribute(c,3));
+  scene.add(new THREE.Points(g,new THREE.PointsMaterial({size:2.8,sizeAttenuation:true,vertexColors:true})));
+}
+// Nebula
+{
+  const g=new THREE.BufferGeometry();const p=new Float32Array(6000);
+  for(let i=0;i<6000;i+=3){const r=40000+Math.random()*20000,th=Math.random()*Math.PI*2,ph=Math.random()*Math.PI;p[i]=r*Math.sin(ph)*Math.cos(th);p[i+1]=r*Math.cos(ph)*.2;p[i+2]=r*Math.sin(ph)*Math.sin(th);}
+  g.setAttribute('position',new THREE.BufferAttribute(p,3));
+  scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0x223355,size:10,transparent:true,opacity:.28,sizeAttenuation:true})));
+}
+
+// Lighting
+const sun=new THREE.DirectionalLight(0xfff8e8,5);
+sun.position.set(15000,6000,10000);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-4000;sun.shadow.camera.right=4000;
+sun.shadow.camera.top=4000;sun.shadow.camera.bottom=-4000;sun.shadow.camera.far=40000;
+scene.add(sun);
+scene.add(new THREE.AmbientLight(0x071828,1.3));
+const rim=new THREE.DirectionalLight(0x1a2a6a,2.2);rim.position.set(-12000,-4000,-8000);scene.add(rim);
+
+load(25,'Constructing ring geometry...');
+
+// ── RING GROUP ──
+const ringGroup=new THREE.Group();scene.add(ringGroup);
+
+// Floor annulus (inner habitat surface — people stand on inside)
+const floorShape=new THREE.Shape();
+floorShape.absarc(0,0,R+RT,0,Math.PI*2,false);
+const hole=new THREE.Path();hole.absarc(0,0,R-RW,0,Math.PI*2,true);floorShape.holes.push(hole);
+const floorGeom=new THREE.ShapeGeometry(floorShape,300);
+// Zone-colored floor — 5 sectors
+const fpos=floorGeom.attributes.position.array;
+const fcols=new Float32Array(floorGeom.attributes.position.count*3);
+for(let i=0;i<floorGeom.attributes.position.count;i++){
+  const x=fpos[i*3],y=fpos[i*3+1];
+  const a=((Math.atan2(y,x)+Math.PI*2)%(Math.PI*2));
+  const zi=Math.floor(a/(Math.PI*2)*5)%5;
+  const col=new THREE.Color(sectors[zi].color);
+  const v=0.5+Math.random()*.5;
+  fcols[i*3]=col.r*v;fcols[i*3+1]=col.g*v;fcols[i*3+2]=col.b*v;
+}
+floorGeom.setAttribute('color',new THREE.BufferAttribute(fcols,3));
+const floor=new THREE.Mesh(floorGeom,new THREE.MeshPhongMaterial({vertexColors:true,shininess:12,side:THREE.DoubleSide}));
+floor.rotation.x=Math.PI/2;floor.receiveShadow=true;ringGroup.add(floor);
+
+// Outer shell torus
+const shellMat=new THREE.MeshPhongMaterial({color:0x1a2a3a,shininess:160,specular:0x336688});
+const outerShell=new THREE.Mesh(new THREE.TorusGeometry(R,RT,10,512),shellMat);outerShell.rotation.x=Math.PI/2;ringGroup.add(outerShell);
+const innerShell=new THREE.Mesh(new THREE.TorusGeometry(R-RW,Math.round(RT*.6),8,512),shellMat);innerShell.rotation.x=Math.PI/2;ringGroup.add(innerShell);
+
+// Edge glow lines
+const egM=new THREE.MeshBasicMaterial({color:0x3388ff,transparent:true,opacity:.55});
+ringGroup.add(Object.assign(new THREE.Mesh(new THREE.TorusGeometry(R+RT,1.5,4,512),egM),{rotation:{x:Math.PI/2,y:0,z:0}}));
+ringGroup.add(Object.assign(new THREE.Mesh(new THREE.TorusGeometry(R-RW,1.5,4,512),egM),{rotation:{x:Math.PI/2,y:0,z:0}}));
+
+// Stabilisation rings (counter-rotating — from original file)
+const stabMat=new THREE.MeshPhongMaterial({color:0x223344,shininess:80,specular:0x3355aa,transparent:true,opacity:.6});
+const stab1=new THREE.Mesh(new THREE.TorusGeometry(R+80,6,8,200),stabMat);stab1.position.z=120;ringGroup.add(stab1);
+const stab2=new THREE.Mesh(new THREE.TorusGeometry(R+80,6,8,200),stabMat);stab2.position.z=-120;ringGroup.add(stab2);
+
+load(40,'Populating 5 sectors...');
+
+// ── 5 SECTORS / SETTLEMENTS ──
+const cityMeshes=[];
+sectors.forEach((s,i)=>{
+  const a=(i/5)*Math.PI*2+(Math.PI/5); // offset so sector labels are centered
+  const cr=R-RW*.5;
+  const cx=Math.cos(a)*cr,cz=Math.sin(a)*cr;
+  const col=sectorColors[i];
+  const sz=60+Math.random()*40;
+
+  // Glow disc on floor
+  const disc=new THREE.Mesh(new THREE.CircleGeometry(sz*2.5,32),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.1,side:THREE.DoubleSide}));
+  disc.position.set(cx,1,cz);disc.rotation.x=Math.PI/2;ringGroup.add(disc);
+
+  // Buildings pointing inward (upward toward center)
+  for(let b=0;b<50;b++){
+    const bh=5+Math.random()*sz*1.8;
+    const bw=3+Math.random()*8;
+    const bC=new THREE.Color(col);bC.multiplyScalar(.25+Math.random()*.4);
+    const bMesh=new THREE.Mesh(
+      new THREE.BoxGeometry(bw,bh,bw),
+      new THREE.MeshPhongMaterial({color:bC,emissive:new THREE.Color(col).multiplyScalar(.04),shininess:90})
+    );
+    const spread=sz*2.8,bth=Math.random()*Math.PI*2,br=Math.random()*spread;
+    bMesh.position.set(cx+Math.cos(bth)*br,bh/2+2,cz+Math.sin(bth)*br);
+    bMesh.castShadow=true;ringGroup.add(bMesh);
+  }
+
+  // Sector beacon sphere
+  const cMesh=new THREE.Mesh(
+    new THREE.SphereGeometry(sz*.45,12,12),
+    new THREE.MeshPhongMaterial({color:col,emissive:new THREE.Color(col).multiplyScalar(.6),shininess:200})
+  );
+  cMesh.position.set(cx,sz*.45+2,cz);
+  cMesh.userData={si:i,angle:a};
+  ringGroup.add(cMesh);cityMeshes.push(cMesh);
+
+  // Point light per sector
+  const pl=new THREE.PointLight(col,2,RW*2);pl.position.set(cx,15,cz);ringGroup.add(pl);
+});
+
+// Metro rings (two tracks near inner/outer edges)
+const metroTrains=[];
+[R-RW*.12, R-RW*.88].forEach((mr,mi)=>{
+  const trk=new THREE.Mesh(new THREE.TorusGeometry(mr,3,8,512),new THREE.MeshBasicMaterial({color:0x2277cc,transparent:true,opacity:.5}));
+  trk.rotation.x=Math.PI/2;ringGroup.add(trk);
+  for(let t=0;t<5;t++){
+    const tMesh=new THREE.Mesh(new THREE.BoxGeometry(28,6,8),new THREE.MeshPhongMaterial({color:0x3399ff,emissive:0x112244,shininess:180}));
+    ringGroup.add(tMesh);
+    metroTrains.push({mesh:tMesh,r:mr,offset:t*(Math.PI*2/5),speed:(mi===0?1:-1)*.005});
+  }
+});
+
+load(58,'Deploying solar array...');
+
+// Solar mirror panels (outer ring)
+for(let s=0;s<60;s++){
+  const a=s*(Math.PI*2/60);
+  const pMesh=new THREE.Mesh(new THREE.PlaneGeometry(50,16),new THREE.MeshPhongMaterial({color:0x6688aa,shininess:250,specular:0xffffff,side:THREE.DoubleSide,transparent:true,opacity:.5}));
+  pMesh.position.set(Math.cos(a)*(R+RT+25),0,Math.sin(a)*(R+RT+25));pMesh.lookAt(0,0,0);pMesh.rotateX(Math.PI/2);ringGroup.add(pMesh);
+}
+
+// Docking ports
+for(let d=0;d<10;d++){
+  const a=d*(Math.PI*2/10)+Math.PI/10;
+  const dMesh=new THREE.Mesh(new THREE.CylinderGeometry(15,15,10,8),new THREE.MeshPhongMaterial({color:0x334455,shininess:120,specular:0x446688}));
+  dMesh.position.set(Math.cos(a)*(R+RT+18),0,Math.sin(a)*(R+RT+18));dMesh.lookAt(0,0,0);ringGroup.add(dMesh);
+}
+
+load(70,'Constructing Zenith Nexus (21m hub)...');
+
+// ── CENTRAL NEXUS (21m = 2.1 units at 1:10 scale) ──
+// At visual scale R=1400 units for 14km → 1 unit = 10m → 21m = 2.1 units
+// Too tiny to see, so we render it at 50 units but label it 21m
+const hubMat=new THREE.MeshPhongMaterial({color:0x00aacc,shininess:200,specular:0x44aaff,emissive:0x003344});
+const hub=new THREE.Mesh(new THREE.SphereGeometry(50,32,32),hubMat);scene.add(hub);
+// Hub rings
+for(let hr=0;hr<3;hr++){
+  const hrMesh=new THREE.Mesh(new THREE.TorusGeometry(65+hr*28,4,8,64),new THREE.MeshPhongMaterial({color:0x00d2ff,shininess:150,specular:0x55aaff,emissive:0x001122}));
+  hrMesh.rotation.x=(hr%2===0)?Math.PI/2:Math.PI/3;scene.add(hrMesh);
+}
+const hubGlow=new THREE.PointLight(0x00aaff,4,800);scene.add(hubGlow);
+
+// ── 5 SPOKES (bridges from hub to ring — from original file) ──
+const spokeMat=new THREE.MeshPhongMaterial({color:0x334455,shininess:120,specular:0x3366aa,transparent:true,opacity:.85});
+const spokeLen=R-RW*.5-65;
+for(let s=0;s<5;s++){
+  const a=s*(Math.PI*2/5);
+  const midR=(65+R-RW*.5)/2;
+  const cos=Math.cos(a),sin=Math.sin(a);
+
+  // Main bridge beam
+  const sM=new THREE.Mesh(new THREE.CylinderGeometry(5,5,spokeLen,8),spokeMat);
+  sM.position.set(cos*midR,0,sin*midR);sM.rotation.z=Math.PI/2;sM.rotation.y=-a;scene.add(sM);
+
+  // Parallel secondary beam
+  const s2M=new THREE.Mesh(new THREE.CylinderGeometry(2.5,2.5,spokeLen,6),spokeMat);
+  s2M.position.set(cos*midR+sin*16,12,sin*midR-cos*16);s2M.rotation.z=Math.PI/2;s2M.rotation.y=-a;scene.add(s2M);
+
+  // Glow line
+  const gM=new THREE.Mesh(new THREE.CylinderGeometry(1,1,spokeLen,4),new THREE.MeshBasicMaterial({color:0x00d2ff,transparent:true,opacity:.3}));
+  gM.position.copy(sM.position);gM.rotation.copy(sM.rotation);scene.add(gM);
+
+  // Cross struts along spoke
+  for(let st=0;st<10;st++){
+    const sr=65+(st+.5)/10*spokeLen;
+    const stM=new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,20,4),spokeMat);
+    stM.position.set(cos*sr,10,sin*sr);stM.rotation.z=Math.PI/4;stM.rotation.y=-a;scene.add(stM);
+  }
+}
+
+load(88,'Launching command interface...');
+
+// ── CAMERA CONTROLS ──
+let isDragging=false,lx=0,ly=0;
+let sph={theta:.5,phi:.92,r:5000},tSph={theta:.5,phi:.92,r:5000};
+let autoRot=true,flyMode=false,flyA=0;
+
+function toXYZ(s){return{x:s.r*Math.sin(s.phi)*Math.cos(s.theta),y:s.r*Math.cos(s.phi),z:s.r*Math.sin(s.phi)*Math.sin(s.theta)};}
+
+renderer.domElement.addEventListener('mousedown',e=>{isDragging=true;lx=e.clientX;ly=e.clientY;autoRot=false;flyMode=false;});
+window.addEventListener('mouseup',()=>isDragging=false);
+window.addEventListener('mousemove',e=>{
+  if(!isDragging)return;
+  tSph.theta-=(e.clientX-lx)*.004;
+  tSph.phi=Math.max(.05,Math.min(Math.PI-.05,tSph.phi+(e.clientY-ly)*.004));
+  lx=e.clientX;ly=e.clientY;
+});
+renderer.domElement.addEventListener('wheel',e=>{tSph.r=Math.max(150,Math.min(25000,tSph.r+e.deltaY*3));autoRot=false;flyMode=false;e.preventDefault();},{passive:false});
+renderer.domElement.addEventListener('touchstart',e=>{lx=e.touches[0].clientX;ly=e.touches[0].clientY;autoRot=false;});
+renderer.domElement.addEventListener('touchmove',e=>{
+  tSph.theta-=(e.touches[0].clientX-lx)*.004;
+  tSph.phi=Math.max(.05,Math.min(Math.PI-.05,tSph.phi+(e.touches[0].clientY-ly)*.004));
+  lx=e.touches[0].clientX;ly=e.touches[0].clientY;e.preventDefault();
+},{passive:false});
+
+function setMode(id){document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));document.getElementById('btn-'+id).classList.add('active');flyMode=false;autoRot=false;}
+document.getElementById('btn-orbit').onclick=()=>{tSph={theta:.5,phi:.92,r:5000};autoRot=true;flyMode=false;setMode('orbit');};
+document.getElementById('btn-top').onclick=()=>{tSph={theta:.1,phi:.04,r:6500};setMode('top');};
+document.getElementById('btn-side').onclick=()=>{tSph={theta:.1,phi:Math.PI/2,r:5500};setMode('side');};
+document.getElementById('btn-hub').onclick=()=>{tSph={theta:.3,phi:Math.PI/2,r:450};setMode('hub');};
+document.getElementById('btn-fly').onclick=()=>{
+  flyMode=!flyMode;autoRot=false;
+  document.getElementById('btn-fly').textContent=flyMode?'Stop Flying':'Fly Inside';
+  document.getElementById('btn-fly').classList.toggle('active',flyMode);
+};
+
+// Click to inspect sector
+const ray=new THREE.Raycaster();const mp=new THREE.Vector2();
+const spanel=document.getElementById('sector-panel');
+document.getElementById('close-panel').onclick=()=>spanel.style.display='none';
+renderer.domElement.addEventListener('click',e=>{
+  mp.x=(e.clientX/W)*2-1;mp.y=-(e.clientY/H)*2+1;
+  ray.setFromCamera(mp,camera);
+  const hits=ray.intersectObjects(cityMeshes);
+  if(hits.length){
+    const s=sectors[hits[0].object.userData.si];
+    document.getElementById('sp-name').textContent=s.name+' Sector';
+    document.getElementById('sp-zone').textContent=s.zone+' Zone';
+    document.getElementById('sp-desc').textContent=s.desc;
+    document.getElementById('sp-pop').textContent=s.pop;
+    document.getElementById('sp-grav').textContent=s.grav;
+    document.getElementById('sp-status').textContent=s.status;
+    document.getElementById('sp-temp').textContent=s.temp;
+    spanel.style.display='block';
+    tSph={theta:hits[0].object.userData.angle+Math.PI/2,phi:1.15,r:600};
+    autoRot=false;flyMode=false;
+  }
+});
+
+// Clock
+function clock(){const n=new Date();document.getElementById('time-display').textContent=[n.getHours(),n.getMinutes(),n.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');}
+setInterval(clock,1000);clock();
+
+// ── ANIMATION LOOP ──
+// Counter-rotating stabilisation rings (from original)
+let tick=0;
+const rotStep=0.002; // from original file exactly
+
+function animate(){
+  requestAnimationFrame(animate);tick+=.012;
+
+  // Primary ring rotation at 0.24 RPM
+  ringGroup.rotation.y+=OMEGA;
+
+  // Counter-rotating stabilisation rings (from original)
+  stab1.rotation.z-=rotStep*2.5;
+  stab2.rotation.z-=rotStep*2.5;
+
+  // Nexus spinning
+  hub.rotation.y+=rotStep*10;
+  hubGlow.intensity=3+Math.sin(tick*.8)*.8;
+
+  // Metro trains
+  metroTrains.forEach(mt=>{
+    mt.offset+=mt.speed;
+    mt.mesh.position.set(Math.cos(mt.offset)*mt.r,4,Math.sin(mt.offset)*mt.r);
+    mt.mesh.rotation.y=-mt.offset+Math.PI/2;
+  });
+
+  // Sector beacon pulse
+  cityMeshes.forEach((c,i)=>c.scale.setScalar(1+.07*Math.sin(tick*1.6+i*.8)));
+
+  // Camera
+  if(flyMode){
+    flyA+=.003;const fr=R-RW*.42,ry=ringGroup.rotation.y;
+    camera.position.set(Math.cos(flyA+ry)*fr,80+Math.sin(flyA*.4)*40,Math.sin(flyA+ry)*fr);
+    const la=flyA+ry+.25;camera.lookAt(Math.cos(la)*(R-RW*.5),60,Math.sin(la)*(R-RW*.5));
+  } else {
+    if(autoRot)tSph.theta+=.0006;
+    sph.theta+=(tSph.theta-sph.theta)*.055;
+    sph.phi+=(tSph.phi-sph.phi)*.055;
+    sph.r+=(tSph.r-sph.r)*.055;
+    const p=toXYZ(sph);
+    camera.position.set(p.x,p.y,p.z);camera.lookAt(0,0,0);
+  }
+
+  renderer.render(scene,camera);
+}
+
+setTimeout(()=>{load(100);setTimeout(()=>{loadEl.style.opacity='0';setTimeout(()=>{loadEl.style.display='none';animate();},900);},400);},600);
+
+window.addEventListener('resize',()=>{const nw=window.innerWidth,nh=window.innerHeight;camera.aspect=nw/nh;camera.updateProjectionMatrix();renderer.setSize(nw,nh);});
+</script>
+</body>
+</html>
